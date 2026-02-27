@@ -101,6 +101,36 @@ The task was seeded with three traps designed to exploit common agent defaults:
 | **Defects caught pre-delivery** | 0 | 8 hardening measures | Significant quality uplift |
 | **Auditability** | None | Full traceability to anti-pattern IDs | Easier to justify in review |
 
+### Actual MCP Server Logs (From Claude's Session)
+
+The following is the real tool invocation log captured by the MCP server during Claude's augmented session:
+
+```
+TIMESTAMP (UTC)              TOOL                    DURATION
+─────────────────────────────────────────────────────────────
+2026-02-27T21:39:10.698Z     search_antipatterns      15,045ms
+2026-02-27T21:39:10.776Z     seed_from_stack              50ms
+2026-02-27T21:39:10.802Z     get_risk_profile              7ms
+2026-02-27T21:39:25.819Z     search_antipatterns      15,011ms
+2026-02-27T21:39:25.832Z     validate_antipattern          5ms
+2026-02-27T21:39:41.395Z     interview_developer     15,560ms
+2026-02-27T21:40:11.987Z     critique_plan           30,585ms
+2026-02-27T21:40:53.819Z     deep_analysis           41,824ms
+─────────────────────────────────────────────────────────────
+TOTAL SERVER-SIDE PROCESSING                        118,087ms
+```
+
+**Measured cost breakdown:**
+
+| Resource | Actual Value |
+|---|---|
+| **Total MCP server processing** | 118.1 seconds |
+| **Longest single call** | `deep_analysis` at 41.8s (OpenAI GPT-5.2 with reasoning tokens) |
+| **Judge critique** | 30.6s — identified 2 risks, risk score 0.85, verdict: **reject** |
+| **Hybrid search calls** | ~15s each (pgvector + full-text with RRF scoring) |
+| **Fast calls** | `seed_from_stack` (50ms), `get_risk_profile` (7ms), `validate_antipattern` (5ms) |
+| **Session span** | 21:39:10 to 21:41:45 UTC (~2.5 minutes wall clock) |
+
 > **Bottom Line**: The Negative Memory integration cost roughly **3x the latency** and **4x the tokens**, but caught **8 concrete defects** that the baseline Claude shipped with — including a critical currency-precision bug (`float` for money) and zero backpressure under retry storms. For a payment service, those defects could mean real financial losses, making the extra cost well worth it.
 >
 > **Key Insight**: Both agents were the same Claude.ai model. The baseline Claude *knew* the safe methods but defaulted to the "simple" path — a manifestation of statistical bias toward common patterns. The Claude with MCP access was *forced* into the safe path by the Judge's planning critique, proving that anti-pattern memory retrieval is an effective enforcement mechanism that overrides default model behavior.
