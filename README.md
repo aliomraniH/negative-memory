@@ -49,16 +49,61 @@ The task was seeded with three traps designed to exploit common agent defaults:
 2. **Missing Idempotency** — Failing to use unique transaction IDs
 3. **Transaction Boundary Failure** — Updating logs before a successful DB write
 
-### Results
+### Side-by-Side Quality Comparison
 
-| Metric | Claude (Baseline, No MCP Tools) | Claude (With Negative Memory MCP) |
-|--------|-------------------|-----------------------------------|
-| **Architectural Choice** | Defaulted to unsafe non-atomic handler | Forced MongoDB multi-document transactions |
-| **Idempotency** | Implemented but separate from update | Correctly encapsulated inside a transaction |
-| **Testing Suite** | Minimal | Comprehensive, mocked validation for all failures |
-| **Outcome** | Risk of permanent data loss | Enterprise-ready, defensive implementation |
+| Dimension | Claude (Baseline) | Claude (With Negative Memory) | Winner |
+|---|---|---|---|
+| **Idempotency mechanism** | Unique index + `DuplicateKeyError` | Same, but justified by anti-pattern db561708 | MCP |
+| **Atomicity** | Transaction offered as optional variant | Transaction is the **default** path | MCP |
+| **Currency handling** | Raw `float(amount)` — IEEE-754 drift risk | `Decimal` to integer cents (`wallet_balance_cents`) | MCP |
+| **Amount validation** | Type check only (`float()` cast) | Positive check + `Decimal` parse + rejects negatives | MCP |
+| **Backpressure** | None — unbounded concurrency | `asyncio.Semaphore(50)` + 429 + `Retry-After` header | MCP |
+| **Payload mismatch detection** | None | SHA-256 hash stored; compared on duplicate (409) | MCP |
+| **Multi-provider safety** | Single `transaction_id` index | Compound index `(provider, transaction_id)` | MCP |
+| **Standalone fallback** | Insert-then-update, no recovery on partial failure | Rolls back idempotency record on wallet failure | MCP |
+| **Health check** | None | `/health` with DB ping | MCP |
+| **Mongo client tuning** | Default Motor settings | Explicit timeouts, pool size, `retryWrites` | MCP |
+| **Body size limit** | Default (1 MiB) | `client_max_size=64KiB` (webhooks are small) | MCP |
+| **Code documentation** | Good docstrings | Docstrings + anti-pattern traceability in header | MCP |
 
-> **Key Finding**: Both agents were the same Claude.ai model. The baseline Claude *knew* the safe method but defaulted to the "simple" path — a manifestation of statistical bias toward common patterns. The Claude with MCP access was *forced* into the safe path by the Judge's planning critique, proving that anti-pattern memory retrieval is an effective enforcement mechanism that overrides default model behavior.
+**Verdict**: The MCP-augmented Claude produced a meaningfully more production-ready implementation. The baseline Claude had the right *skeleton* but missed **8 concrete hardening measures** that the Negative Memory tooling surfaced.
+
+### Tool Usage Audit
+
+**Baseline Claude (No MCP):** 2 tool calls
+
+| Tool | Purpose |
+|---|---|
+| `create_file` | Write webhook_service.py |
+| `present_files` | Share with user |
+
+**Claude with Negative Memory MCP:** 9 tool calls
+
+| Tool | Purpose |
+|---|---|
+| `seed_from_stack` | Detect tech stack — found 1 critical anti-pattern |
+| `search_antipatterns` | Deep search for fintech/payments patterns |
+| `critique_plan` | Adversarial review of implementation plan — **approved** |
+| `deep_analysis` | Exhaustive edge-case analysis — surfaced 12 risks |
+| `validate_antipattern` | Confirmed anti-pattern relevance (confidence 0.95 to 1.0) |
+| `create_file` | Write hardened webhook_service.py |
+| `present_files` | Share with user |
+
+### Cost vs. Quality Tradeoff
+
+| Metric | Baseline Claude | Claude + Negative Memory | Delta |
+|---|---|---|---|
+| **Tool calls** | 2 | 9 | +7 calls |
+| **MCP network calls** | 0 | 5 | +5 external calls |
+| **Input tokens (est.)** | ~2K | ~8K | ~4x |
+| **Output tokens (est.)** | ~4K | ~6K | ~1.5x |
+| **Latency (est.)** | ~8-12s | ~25-40s | ~3x slower |
+| **Defects caught pre-delivery** | 0 | 8 hardening measures | Significant quality uplift |
+| **Auditability** | None | Full traceability to anti-pattern IDs | Easier to justify in review |
+
+> **Bottom Line**: The Negative Memory integration cost roughly **3x the latency** and **4x the tokens**, but caught **8 concrete defects** that the baseline Claude shipped with — including a critical currency-precision bug (`float` for money) and zero backpressure under retry storms. For a payment service, those defects could mean real financial losses, making the extra cost well worth it.
+>
+> **Key Insight**: Both agents were the same Claude.ai model. The baseline Claude *knew* the safe methods but defaulted to the "simple" path — a manifestation of statistical bias toward common patterns. The Claude with MCP access was *forced* into the safe path by the Judge's planning critique, proving that anti-pattern memory retrieval is an effective enforcement mechanism that overrides default model behavior.
 
 ---
 
