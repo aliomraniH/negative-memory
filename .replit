@@ -1,0 +1,12 @@
+run = "npm run build && npm start"
+entrypoint = "src/index.ts"
+
+[nix]
+channel = "stable-24_05"
+
+[env]
+PATH = "/home/runner/$REPL_SLUG/node_modules/.bin:$PATH"
+
+[[ports]]
+localPort = 5432
+externalPort = 5432

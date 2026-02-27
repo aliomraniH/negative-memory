@@ -1,0 +1,30 @@
+{
+  "name": "negative-memory-mcp",
+  "version": "1.0.0",
+  "description": "Negative Example Memory MCP Server — anti-pattern database with adversarial plan critique",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "setup-db": "ts-node src/db/migrations.ts",
+    "seed": "ts-node src/db/run-seed.ts",
+    "test-task": "ts-node scripts/test-single-task.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.1",
+    "pgvector": "^0.2.0",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "@types/uuid": "^10.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.0"
+  }
+}
