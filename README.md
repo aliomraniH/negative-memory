@@ -40,7 +40,7 @@ The architecture adopts the IBM ODC taxonomy, categorizing defects into 13 indep
 
 ## Empirical Validation: The Async Webhook Test Case
 
-To validate the hypothesis, two agents were tasked with building a Python/MongoDB webhook service for payment processing.
+To validate the hypothesis, two identical **Claude.ai** agents were tasked with building a Python/MongoDB webhook service for payment processing. Both agents had the same capabilities and model — the only difference was that **Agent 2 had access to the Negative Memory MCP tools**, while Agent 1 did not.
 
 ### Task & "Invisible Bug" Traps
 
@@ -51,14 +51,14 @@ The task was seeded with three traps designed to exploit common agent defaults:
 
 ### Results
 
-| Metric | Agent 1 (Baseline) | Agent 2 (With Anti-Pattern Memory) |
+| Metric | Claude (Baseline, No MCP Tools) | Claude (With Negative Memory MCP) |
 |--------|-------------------|-----------------------------------|
 | **Architectural Choice** | Defaulted to unsafe non-atomic handler | Forced MongoDB multi-document transactions |
 | **Idempotency** | Implemented but separate from update | Correctly encapsulated inside a transaction |
 | **Testing Suite** | Minimal | Comprehensive, mocked validation for all failures |
 | **Outcome** | Risk of permanent data loss | Enterprise-ready, defensive implementation |
 
-> **Key Finding**: Agent 1 *knew* the safe method but defaulted to the "simple" path. Agent 2 was *forced* into the safe path by the Judge's planning critique, proving that memory retrieval is an effective enforcement mechanism against statistical bias.
+> **Key Finding**: Both agents were the same Claude.ai model. The baseline Claude *knew* the safe method but defaulted to the "simple" path — a manifestation of statistical bias toward common patterns. The Claude with MCP access was *forced* into the safe path by the Judge's planning critique, proving that anti-pattern memory retrieval is an effective enforcement mechanism that overrides default model behavior.
 
 ---
 
