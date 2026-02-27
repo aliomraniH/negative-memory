@@ -235,6 +235,7 @@ RETURNS TABLE (
     validated_by_developer BOOLEAN,
     developer_context     TEXT,
     embedding             vector(1024),
+    search_tsv            tsvector,
     times_surfaced        INTEGER,
     times_helpful         INTEGER,
     created_at            TIMESTAMPTZ,
@@ -278,7 +279,7 @@ BEGIN
             sa.s_rank,
             ka.k_rank,
             (COALESCE(1.0 / (rrf_k + sa.s_rank), 0) +
-             COALESCE(1.0 / (rrf_k + ka.k_rank), 0)) AS fused_score
+             COALESCE(1.0 / (rrf_k + ka.k_rank), 0))::double precision AS fused_score
         FROM semantic_arm sa
         FULL OUTER JOIN keyword_arm ka ON sa.match_id = ka.match_id
     )
@@ -306,6 +307,7 @@ BEGIN
         bf.validated_by_developer,
         bf.developer_context,
         bf.embedding,
+        bf.search_tsv,
         bf.times_surfaced,
         bf.times_helpful,
         bf.created_at,

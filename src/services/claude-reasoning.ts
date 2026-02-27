@@ -1,26 +1,11 @@
-import Anthropic from '@anthropic-ai/sdk';
 import type {
   JudgeCritique,
   RiskItem,
   AntiPattern,
   AddAntiPatternInput,
 } from '../types';
+import { aiComplete, aiCompleteAsJudge, getActiveProvider, getJudgeModel } from './ai-provider';
 
-let client: Anthropic | null = null;
-
-function getClient(): Anthropic {
-  if (!client) {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      throw new Error('ANTHROPIC_API_KEY is required for Claude reasoning');
-    }
-    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  }
-  return client;
-}
-
-// ============================================================================
-// THE JUDGE — Complete System Prompt
-// ============================================================================
 const JUDGE_SYSTEM_PROMPT = `You are THE JUDGE — an adversarial code plan critic. Your sole purpose is to find risks, mistakes, and anti-patterns in proposed coding plans BEFORE code is written.
 
 ## YOUR ROLE
@@ -73,16 +58,12 @@ function formatAntiPatternContext(patterns: AntiPattern[]): string {
     .join('\n\n');
 }
 
-/**
- * Call the Judge to critique a coding plan.
- */
 export async function callJudge(
   plan: string,
   task: string,
   antipatterns: AntiPattern[],
   codeContext?: string
 ): Promise<JudgeCritique> {
-  const model = process.env.JUDGE_MODEL || 'claude-sonnet-4-5-20250929';
   const maxRetries = 2;
 
   const userMessage = `## TASK DESCRIPTION
@@ -99,26 +80,17 @@ Analyze the proposed plan against the anti-pattern database. Output ONLY the JSO
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const c = getClient();
-      const response = await c.messages.create({
-        model,
-        max_tokens: 4096,
+      const response = await aiCompleteAsJudge({
         system: JUDGE_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userMessage }],
+        userMessage,
+        maxTokens: 4096,
       });
 
-      const content = response.content[0];
-      if (content.type !== 'text') {
-        throw new Error('Unexpected response type');
-      }
-
-      // Parse JSON from response (handle markdown code blocks)
-      let jsonText = content.text.trim();
+      let jsonText = response.text.trim();
       const jsonMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (jsonMatch) {
         jsonText = jsonMatch[1].trim();
       }
-      // Also try to find raw JSON object
       if (!jsonText.startsWith('{')) {
         const objMatch = jsonText.match(/\{[\s\S]*\}/);
         if (objMatch) {
@@ -128,7 +100,6 @@ Analyze the proposed plan against the anti-pattern database. Output ONLY the JSO
 
       const critique = JSON.parse(jsonText) as JudgeCritique;
 
-      // Validate required fields
       if (typeof critique.overall_risk_score !== 'number') {
         critique.overall_risk_score = 0.5;
       }
@@ -149,7 +120,6 @@ Analyze the proposed plan against the anti-pattern database. Output ONLY the JSO
     } catch (err) {
       console.error(`[Judge] Attempt ${attempt + 1} failed:`, (err as Error).message);
       if (attempt === maxRetries) {
-        // Return a safe fallback
         console.error('[Judge] All attempts failed, returning cautionary fallback');
         return {
           overall_risk_score: 0.5,
@@ -164,7 +134,6 @@ Analyze the proposed plan against the anti-pattern database. Output ONLY the JSO
     }
   }
 
-  // TypeScript: unreachable, but for type safety
   return {
     overall_risk_score: 0.5,
     risks: [],
@@ -174,25 +143,15 @@ Analyze the proposed plan against the anti-pattern database. Output ONLY the JSO
   };
 }
 
-/**
- * Extract tech stack from a natural language description using Claude.
- */
 export async function extractTechStack(description: string): Promise<string[]> {
   try {
-    const c = getClient();
-    const model = process.env.JUDGE_MODEL || 'claude-sonnet-4-5-20250929';
-
-    const response = await c.messages.create({
-      model,
-      max_tokens: 512,
+    const response = await aiComplete({
       system: 'Extract technology names from the description. Return ONLY a JSON array of lowercase strings. Include programming languages, databases, frameworks, cloud services, and tools mentioned or implied. Example: ["python", "fastapi", "postgresql", "docker"]',
-      messages: [{ role: 'user', content: description }],
+      userMessage: description,
+      maxTokens: 512,
     });
 
-    const content = response.content[0];
-    if (content.type !== 'text') return [];
-
-    const match = content.text.match(/\[[\s\S]*\]/);
+    const match = response.text.match(/\[[\s\S]*\]/);
     if (!match) return [];
 
     const result = JSON.parse(match[0]);
@@ -205,20 +164,12 @@ export async function extractTechStack(description: string): Promise<string[]> {
   }
 }
 
-/**
- * Analyze a developer's interview response to determine if it describes an anti-pattern.
- */
 export async function analyzeInterviewResponse(
   response: string,
   techStack: string[]
 ): Promise<AddAntiPatternInput | null> {
   try {
-    const c = getClient();
-    const model = process.env.JUDGE_MODEL || 'claude-sonnet-4-5-20250929';
-
-    const apiResponse = await c.messages.create({
-      model,
-      max_tokens: 2048,
+    const apiResponse = await aiComplete({
       system: `You analyze developer interview responses about past coding mistakes. If the response describes a specific, actionable anti-pattern, extract it into a structured format. If the response is too vague or not about a specific coding mistake, respond with {"is_antipattern": false}.
 
 If it IS an anti-pattern, respond with:
@@ -235,18 +186,11 @@ If it IS an anti-pattern, respond with:
   "detection_hint": "How to find this in code",
   "prevention_strategy": "How to prevent this"
 }`,
-      messages: [
-        {
-          role: 'user',
-          content: `Developer's tech stack: ${techStack.join(', ')}\n\nDeveloper's response: ${response}`,
-        },
-      ],
+      userMessage: `Developer's tech stack: ${techStack.join(', ')}\n\nDeveloper's response: ${response}`,
+      maxTokens: 2048,
     });
 
-    const content = apiResponse.content[0];
-    if (content.type !== 'text') return null;
-
-    let jsonText = content.text.trim();
+    let jsonText = apiResponse.text.trim();
     const match = jsonText.match(/\{[\s\S]*\}/);
     if (match) jsonText = match[0];
 
@@ -275,18 +219,12 @@ If it IS an anti-pattern, respond with:
   }
 }
 
-/**
- * Generate targeted interview questions based on tech stack and existing patterns.
- */
 export async function generateInterviewQuestions(
   techStack: string[],
   domains: string[],
   existingPatterns: AntiPattern[]
 ): Promise<{ category: string; question: string }[]> {
   try {
-    const c = getClient();
-    const model = process.env.JUDGE_MODEL || 'claude-sonnet-4-5-20250929';
-
     const existingContext =
       existingPatterns.length > 0
         ? `\nExisting anti-patterns in DB (for recognition-trigger questions):\n${existingPatterns
@@ -295,9 +233,7 @@ export async function generateInterviewQuestions(
             .join('\n')}`
         : '';
 
-    const response = await c.messages.create({
-      model,
-      max_tokens: 2048,
+    const response = await aiComplete({
       system: `Generate targeted interview questions to extract coding failure knowledge from a developer. Return a JSON array of objects with "category" and "question" fields.
 
 Question categories and counts:
@@ -309,18 +245,11 @@ Question categories and counts:
 
 Generate 7-12 questions total. Make them open-ended but specific enough to elicit concrete anti-patterns.
 Output ONLY the JSON array.`,
-      messages: [
-        {
-          role: 'user',
-          content: `Tech stack: ${techStack.join(', ')}\nDomains: ${domains.join(', ')}${existingContext}`,
-        },
-      ],
+      userMessage: `Tech stack: ${techStack.join(', ')}\nDomains: ${domains.join(', ')}${existingContext}`,
+      maxTokens: 2048,
     });
 
-    const content = response.content[0];
-    if (content.type !== 'text') return [];
-
-    const match = content.text.match(/\[[\s\S]*\]/);
+    const match = response.text.match(/\[[\s\S]*\]/);
     if (!match) return [];
 
     const questions = JSON.parse(match[0]);
@@ -332,7 +261,6 @@ Output ONLY the JSON array.`,
       : [];
   } catch (err) {
     console.error('[Interview] Question generation failed:', (err as Error).message);
-    // Return default questions as fallback
     return [
       { category: 'stack_specific', question: `What's the most painful bug you've encountered with ${techStack[0] || 'your tech stack'}?` },
       { category: 'stack_specific', question: 'What coding shortcut have you taken that later caused problems?' },

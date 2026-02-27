@@ -4,17 +4,25 @@
   "description": "Negative Example Memory MCP Server — anti-pattern database with adversarial plan critique",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc -p tsconfig.dashboard.json",
+    "build:mcp": "tsc",
+    "build:dashboard": "tsc -p tsconfig.dashboard.json",
     "start": "node dist/index.js",
+    "start:dashboard": "node dist-dashboard/dashboard/server.js",
     "dev": "ts-node src/index.ts",
     "setup-db": "ts-node src/db/migrations.ts",
     "seed": "ts-node src/db/run-seed.ts",
-    "test-task": "ts-node scripts/test-single-task.ts"
+    "test-task": "ts-node scripts/test-single-task.ts",
+    "test-mcp": "ts-node scripts/test-mcp-endpoint.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
+    "@octokit/rest": "^22.0.0",
+    "@types/express": "^5.0.6",
     "dotenv": "^16.4.7",
+    "express": "^5.2.1",
+    "openai": "^6.25.0",
     "pg": "^8.13.1",
     "pgvector": "^0.2.0",
     "uuid": "^11.1.0",

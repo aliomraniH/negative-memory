@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Negative Memory MCP Server</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1><span>Negative Memory</span> MCP Server</h1>
+      <p>Anti-pattern database with adversarial plan critique</p>
+    </header>
+
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="overview">Overview</button>
+      <button class="nav-tab" data-tab="setup">Setup &amp; Keys</button>
+      <button class="nav-tab" data-tab="tools">MCP Tools</button>
+      <button class="nav-tab" data-tab="patterns">Anti-Patterns</button>
+      <button class="nav-tab" data-tab="sessions">Judge Sessions</button>
+      <button class="nav-tab" data-tab="health">Health Check</button>
+    </nav>
+
+    <div id="tab-overview" class="tab-content active">
+      <div id="status-cards" class="grid-4 mb-6">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:rgba(99,102,241,0.12)">DB</div>
+            <h3>Database</h3>
+          </div>
+          <div id="db-status"><div class="spinner"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:rgba(34,197,94,0.12)">AP</div>
+            <h3>Anti-Patterns</h3>
+          </div>
+          <div id="ap-count"><div class="spinner"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:rgba(245,158,11,0.12)">AI</div>
+            <h3>AI Provider</h3>
+          </div>
+          <div id="api-status"><div class="spinner"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:rgba(59,130,246,0.12)">JS</div>
+            <h3>Judge Sessions</h3>
+          </div>
+          <div id="session-count"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="section-title">By Category</h3>
+          <div id="cat-chart" class="bar-chart"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+        <div class="card">
+          <h3 class="section-title">By Severity</h3>
+          <div id="sev-chart" class="bar-chart"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+
+      <div class="card mt-6">
+        <h3 class="section-title">Most Surfaced Anti-Patterns</h3>
+        <div id="top-patterns"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <div id="tab-setup" class="tab-content">
+      <div class="grid-2">
+        <div>
+          <h3 class="section-title">Multi-Role AI Configuration</h3>
+          <div class="card mb-6" id="provider-settings">
+            <p class="section-subtitle" style="margin-bottom:16px">Each AI role can use a different provider and model independently.</p>
+
+            <div class="secret-input-group">
+              <label>Provider (General AI)</label>
+              <p class="section-subtitle" style="margin-bottom:8px">Powers general completions, tech stack extraction, interview analysis.</p>
+              <div style="display:flex;gap:8px">
+                <select id="provider-select" class="provider-select" style="flex:1">
+                  <option value="anthropic">Anthropic (Claude)</option>
+                  <option value="openai">OpenAI (GPT)</option>
+                </select>
+                <select id="provider-model-select" class="provider-select" style="flex:1">
+                </select>
+              </div>
+            </div>
+
+            <div class="secret-input-group mt-4">
+              <label>Judge (Plan Critique &amp; Deep Analysis)</label>
+              <p class="section-subtitle" style="margin-bottom:8px">Adversarial critic for plan risks and extended thinking analysis.</p>
+              <div style="display:flex;gap:8px">
+                <select id="judge-provider-select" class="provider-select" style="flex:1">
+                  <option value="openai">OpenAI (GPT)</option>
+                  <option value="anthropic">Anthropic (Claude)</option>
+                </select>
+                <select id="judge-model-select" class="provider-select" style="flex:1">
+                </select>
+              </div>
+            </div>
+
+            <div class="secret-input-group mt-4">
+              <label>Embedding (Anti-Pattern Search)</label>
+              <p class="section-subtitle" style="margin-bottom:8px">Generates embeddings for semantic similarity search.</p>
+              <div style="display:flex;gap:8px">
+                <select id="embed-provider-select" class="provider-select" style="flex:1">
+                  <option value="anthropic">Anthropic (Claude)</option>
+                  <option value="openai">OpenAI (GPT)</option>
+                </select>
+                <select id="embed-model-select" class="provider-select" style="flex:1">
+                </select>
+              </div>
+            </div>
+
+            <button class="btn btn-primary mt-4" id="save-provider-btn" onclick="saveProviderSettings()">Apply Settings</button>
+            <div id="provider-save-status" style="margin-top:8px"></div>
+          </div>
+
+          <h3 class="section-title">Environment Status</h3>
+          <div class="card mb-6" id="env-status">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="section-title">Setup Checklist</h3>
+          <div class="card" id="setup-steps">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+
+          <h3 class="section-title mt-6">MCP Server Endpoint</h3>
+          <div class="card">
+            <p class="section-subtitle">Your MCP server is accessible via HTTP at:</p>
+            <div class="code-block" style="margin-bottom:12px">
+              <pre id="mcp-endpoint-url" style="font-size:1.1em;color:var(--accent-primary)"><div class="spinner"></div></pre>
+            </div>
+            <p class="section-subtitle" style="margin-top:16px">MCP client configuration:</p>
+            <div class="code-block" id="mcp-config">
+              <button class="copy-btn" onclick="copyConfig()">Copy</button>
+              <pre id="mcp-config-json"><div class="spinner"></div></pre>
+            </div>
+            <div class="alert info mt-4">
+              Use this URL with any MCP client that supports Streamable HTTP transport (e.g., Claude Desktop, Cursor, custom clients).
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-tools" class="tab-content">
+      <h3 class="section-title">Registered MCP Tools</h3>
+      <p class="section-subtitle">These 7 tools are available to Claude when connected via MCP.</p>
+      <div id="tools-grid" class="grid-2">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <div id="tab-patterns" class="tab-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+        <div>
+          <h3 class="section-title" style="margin-bottom:0">Anti-Pattern Database</h3>
+        </div>
+        <div style="display:flex;gap:8px">
+          <select id="filter-category" class="btn btn-secondary" style="appearance:auto;padding:8px 12px">
+            <option value="">All Categories</option>
+            <option value="security_vulnerability">Security</option>
+            <option value="performance_issue">Performance</option>
+            <option value="architecture_smell">Architecture</option>
+            <option value="database_antipattern">Database</option>
+            <option value="devops_misconfiguration">DevOps</option>
+            <option value="error_handling">Error Handling</option>
+            <option value="testing_gap">Testing</option>
+            <option value="data_integrity">Data Integrity</option>
+          </select>
+          <select id="filter-severity" class="btn btn-secondary" style="appearance:auto;padding:8px 12px">
+            <option value="">All Severities</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+            <option value="info">Info</option>
+          </select>
+        </div>
+      </div>
+      <div class="card">
+        <div id="patterns-table"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <div id="tab-sessions" class="tab-content">
+      <h3 class="section-title">Judge Critique Sessions</h3>
+      <p class="section-subtitle">History of plans submitted to the Judge for critique.</p>
+      <div class="card">
+        <div id="sessions-table"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <div id="tab-health" class="tab-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+        <div>
+          <h3 class="section-title" style="margin-bottom:4px">System Health Check</h3>
+          <p class="section-subtitle">Run tests to verify the MCP server components are functioning correctly.</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div id="health-summary" style="color:var(--text-muted);font-size:0.85rem"></div>
+          <button class="btn btn-primary" id="run-all-tests-btn" onclick="runAllTests()">Run All Tests</button>
+        </div>
+      </div>
+
+      <div id="health-progress" style="display:none;margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span id="health-progress-label" style="font-size:0.85rem;color:var(--text-muted)">Running tests...</span>
+          <span id="health-progress-count" style="font-size:0.85rem;color:var(--text-muted)">0/16</span>
+        </div>
+        <div style="background:var(--bg-primary);border-radius:4px;height:6px;overflow:hidden">
+          <div id="health-progress-bar" style="height:100%;width:0%;background:var(--accent);transition:width 0.3s ease;border-radius:4px"></div>
+        </div>
+      </div>
+
+      <div class="health-section">
+        <h4 class="health-group-title">Database & Data</h4>
+        <div class="health-tests-grid">
+          <div class="health-test-card" id="test-db_connection">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">Database Connection</span>
+              <button class="btn btn-sm" onclick="runOneTest('db_connection')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+          <div class="health-test-card" id="test-seed_count">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">Seed Data (35 entries)</span>
+              <button class="btn btn-sm" onclick="runOneTest('seed_count')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+          <div class="health-test-card" id="test-seed_distribution">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">Category Distribution</span>
+              <button class="btn btn-sm" onclick="runOneTest('seed_distribution')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+          <div class="health-test-card" id="test-embeddings">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">Embeddings Generated</span>
+              <button class="btn btn-sm" onclick="runOneTest('embeddings')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+          <div class="health-test-card" id="test-fulltext_search">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">Full-Text Search</span>
+              <button class="btn btn-sm" onclick="runOneTest('fulltext_search')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="health-section">
+        <h4 class="health-group-title">Services</h4>
+        <div class="health-tests-grid">
+          <div class="health-test-card" id="test-stack_parser">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">Stack Parser</span>
+              <button class="btn btn-sm" onclick="runOneTest('stack_parser')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+          <div class="health-test-card" id="test-embedding_service">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">Embedding Generation</span>
+              <button class="btn btn-sm" onclick="runOneTest('embedding_service')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+          <div class="health-test-card" id="test-hybrid_search">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">Hybrid Search</span>
+              <button class="btn btn-sm" onclick="runOneTest('hybrid_search')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+          <div class="health-test-card" id="test-claude_reasoning">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">AI Reasoning (API)</span>
+              <button class="btn btn-sm" onclick="runOneTest('claude_reasoning')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+          <div class="health-test-card" id="test-console_log_check">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">No console.log in src/</span>
+              <button class="btn btn-sm" onclick="runOneTest('console_log_check')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="health-section">
+        <h4 class="health-group-title">MCP Tools</h4>
+        <div class="health-tests-grid">
+          <div class="health-test-card" id="test-tool_seed_from_stack">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">Tool: seed_from_stack</span>
+              <button class="btn btn-sm" onclick="runOneTest('tool_seed_from_stack')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+          <div class="health-test-card" id="test-tool_search">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">Tool: search_antipatterns</span>
+              <button class="btn btn-sm" onclick="runOneTest('tool_search')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+          <div class="health-test-card" id="test-tool_risk_profile">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">Tool: get_risk_profile</span>
+              <button class="btn btn-sm" onclick="runOneTest('tool_risk_profile')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+          <div class="health-test-card" id="test-tool_validate">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">Tool: validate_antipattern</span>
+              <button class="btn btn-sm" onclick="runOneTest('tool_validate')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+          <div class="health-test-card" id="test-tool_interview">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">Tool: interview_developer</span>
+              <button class="btn btn-sm" onclick="runOneTest('tool_interview')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="health-section">
+        <h4 class="health-group-title">Judge &amp; Deep Analysis</h4>
+        <div class="health-tests-grid">
+          <div class="health-test-card" id="test-judge_test">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">THE JUDGE (Flawed Plan Test)</span>
+              <button class="btn btn-sm" onclick="runOneTest('judge_test')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+          <div class="health-test-card" id="test-deep_analysis_test">
+            <div class="health-test-header">
+              <span class="health-test-icon">-</span>
+              <span class="health-test-name">Deep Analysis (Extended Thinking)</span>
+              <button class="btn btn-sm" onclick="runOneTest('deep_analysis_test')">Run</button>
+            </div>
+            <div class="health-test-result"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
